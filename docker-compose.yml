@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: futuremart-api
+    ports:
+      - '5000:5000'
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/futuremart
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-supersecretrefreshkey456}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-30d}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@futuremart.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Admin@123}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - futuremart-network
+
+  mongo:
+    image: mongo:7.0
+    container_name: futuremart-mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - futuremart-network
+
+  # Optional: MongoDB UI
+  mongo-express:
+    image: mongo-express:latest
+    container_name: futuremart-mongo-express
+    ports:
+      - '8081:8081'
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH=false
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - futuremart-network
+    profiles:
+      - debug  # Only starts with: docker compose --profile debug up
+
+networks:
+  futuremart-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
